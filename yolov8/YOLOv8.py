@@ -2,29 +2,29 @@ import time
 import cv2
 import numpy as np
 import onnxruntime
-
 from yolov8.utils import xywh2xyxy, draw_detections, multiclass_nms
+
+
 
 
 class YOLOv8:
 
-    def __init__(self, path, conf_thres=0.7, iou_thres=0.5):
+    def __init__(self, path, conf_thres=0.7, iou_thres=0.5):  # Fixed __init__
         self.conf_threshold = conf_thres
         self.iou_threshold = iou_thres
 
         # Initialize model
         self.initialize_model(path)
 
-    def __call__(self, image):
+    def __call__(self, image):  # Fixed __call__
         return self.detect_objects(image)
 
     def initialize_model(self, path):
-        self.session = onnxruntime.InferenceSession(path,
-                                                    providers=onnxruntime.get_available_providers())
+        self.session = onnxruntime.InferenceSession(path, providers=onnxruntime.get_available_providers())
+
         # Get model info
         self.get_input_details()
         self.get_output_details()
-
 
     def detect_objects(self, image):
         input_tensor = self.prepare_input(image)
@@ -51,12 +51,10 @@ class YOLOv8:
 
         return input_tensor
 
-
     def inference(self, input_tensor):
         start = time.perf_counter()
         outputs = self.session.run(self.output_names, {self.input_names[0]: input_tensor})
 
-        # print(f"Inference time: {(time.perf_counter() - start)*1000:.2f} ms")
         return outputs
 
     def process_output(self, output):
@@ -76,14 +74,12 @@ class YOLOv8:
         # Get bounding boxes for each object
         boxes = self.extract_boxes(predictions)
 
-        # Apply non-maxima suppression to suppress weak, overlapping bounding boxes
-        # indices = nms(boxes, scores, self.iou_threshold)
+        # Apply non-maxima suppression
         indices = multiclass_nms(boxes, scores, class_ids, self.iou_threshold)
 
         return boxes[indices], scores[indices], class_ids[indices]
 
     def extract_boxes(self, predictions):
-        # Extract boxes from predictions
         boxes = predictions[:, :4]
 
         # Scale boxes to original image dimensions
@@ -95,17 +91,13 @@ class YOLOv8:
         return boxes
 
     def rescale_boxes(self, boxes):
-
-        # Rescale boxes to original image dimensions
         input_shape = np.array([self.input_width, self.input_height, self.input_width, self.input_height])
         boxes = np.divide(boxes, input_shape, dtype=np.float32)
         boxes *= np.array([self.img_width, self.img_height, self.img_width, self.img_height])
         return boxes
 
     def draw_detections(self, image, draw_scores=True, mask_alpha=0.4):
-
-        return draw_detections(image, self.boxes, self.scores,
-                               self.class_ids, mask_alpha)
+        return draw_detections(image, self.boxes, self.scores, self.class_ids, mask_alpha)
 
     def get_input_details(self):
         model_inputs = self.session.get_inputs()
@@ -123,7 +115,7 @@ class YOLOv8:
 if __name__ == '__main__':
     from imread_from_url import imread_from_url
 
-    model_path = "../models/yolov8m.onnx"
+    model_path = "C:\\Users\\user\\Downloads\\yolov8m.onnx"
 
     # Initialize YOLOv8 object detector
     yolov8_detector = YOLOv8(model_path, conf_thres=0.3, iou_thres=0.5)

@@ -4,7 +4,7 @@ from imread_from_url import imread_from_url
 from yolov8 import YOLOv8
 
 # Initialize yolov8 object detector
-model_path = "models/yolov8m.onnx"
+model_path = "models\\yolov8m.onnx"
 yolov8_detector = YOLOv8(model_path, conf_thres=0.2, iou_thres=0.3)
 
 # Read image
