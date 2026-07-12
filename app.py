@@ -1,22 +1,30 @@
 import cv2
 import gradio as gr
 import numpy as np
+import os
+import urllib.request
 from yolov8 import YOLOv8
 
-# Initialize yolov8 object detector
 model_path = "models/yolov8m.onnx"
+
+# Download model if it doesn't exist
+if not os.path.exists(model_path):
+    os.makedirs("models", exist_ok=True)
+    print("Downloading YOLOv8 model...")
+    url = "https://huggingface.co/Kalray/yolov8/resolve/main/yolov8m.onnx"
+    urllib.request.urlretrieve(url, model_path)
+    print("Model downloaded successfully.")
+
+# Initialize yolov8 object detector
 yolov8_detector = YOLOv8(model_path, conf_thres=0.2, iou_thres=0.3)
 
 def detect_objects(input_image):
     # Convert RGB (Gradio gives RGB) to BGR (OpenCV format)
     img_bgr = cv2.cvtColor(input_image, cv2.COLOR_RGB2BGR)
-
     # Detect Objects
     boxes, scores, class_ids = yolov8_detector(img_bgr)
-
     # Draw detections
     combined_img = yolov8_detector.draw_detections(img_bgr)
-
     # Convert back to RGB for Gradio display
     output_img = cv2.cvtColor(combined_img, cv2.COLOR_BGR2RGB)
     return output_img
@@ -30,6 +38,5 @@ demo = gr.Interface(
 )
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 7860))
     demo.launch(server_name="0.0.0.0", server_port=port)
