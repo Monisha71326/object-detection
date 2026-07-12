@@ -46,3 +46,4 @@ ultralytics>=8.3.72
 ultralytics-thop>=2.0.14
 urllib3>=2.3.0
 yt-dlp>=2025.10.22
+gradio>=4.0.0
