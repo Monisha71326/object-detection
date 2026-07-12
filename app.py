@@ -18,23 +18,56 @@ if not os.path.exists(model_path):
 # Initialize yolov8 object detector
 yolov8_detector = YOLOv8(model_path, conf_thres=0.2, iou_thres=0.3)
 
-def detect_objects(input_image):
-    # Convert RGB (Gradio gives RGB) to BGR (OpenCV format)
+def detect_image(input_image):
     img_bgr = cv2.cvtColor(input_image, cv2.COLOR_RGB2BGR)
-    # Detect Objects
-    boxes, scores, class_ids = yolov8_detector(img_bgr)
-    # Draw detections
+    yolov8_detector(img_bgr)
     combined_img = yolov8_detector.draw_detections(img_bgr)
-    # Convert back to RGB for Gradio display
-    output_img = cv2.cvtColor(combined_img, cv2.COLOR_BGR2RGB)
-    return output_img
+    return cv2.cvtColor(combined_img, cv2.COLOR_BGR2RGB)
 
-demo = gr.Interface(
-    fn=detect_objects,
+def detect_video(video_path):
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 20
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    output_path = "output.mp4"
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        yolov8_detector(frame)
+        combined = yolov8_detector.draw_detections(frame)
+        out.write(combined)
+
+    cap.release()
+    out.release()
+    return output_path
+
+image_tab = gr.Interface(
+    fn=detect_image,
     inputs=gr.Image(type="numpy", label="Upload an Image"),
     outputs=gr.Image(type="numpy", label="Detected Objects"),
-    title="YOLOv8 Object Detection",
-    description="Upload an image to detect objects using YOLOv8 (ONNX model)."
+)
+
+webcam_tab = gr.Interface(
+    fn=detect_image,
+    inputs=gr.Image(type="numpy", sources=["webcam"], label="Capture from Webcam"),
+    outputs=gr.Image(type="numpy", label="Detected Objects"),
+)
+
+video_tab = gr.Interface(
+    fn=detect_video,
+    inputs=gr.Video(label="Upload a Video"),
+    outputs=gr.Video(label="Detected Objects Video"),
+)
+
+demo = gr.TabbedInterface(
+    [image_tab, webcam_tab, video_tab],
+    tab_names=["Image", "Webcam", "Video"],
+    title="YOLOv8 Object Detection"
 )
 
 if __name__ == "__main__":
