@@ -11,7 +11,7 @@ model_path = "models/yolov8n.onnx"
 if not os.path.exists(model_path):
     os.makedirs("models", exist_ok=True)
     print("Downloading YOLOv8 model...")
-   url = "https://huggingface.co/Kalray/yolov8/resolve/main/yolov8m.onnx"
+    url = "https://huggingface.co/Kalray/yolov8/resolve/main/yolov8n.onnx"
     urllib.request.urlretrieve(url, model_path)
     print("Model downloaded successfully.")
 
