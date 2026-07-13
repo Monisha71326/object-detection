@@ -2,23 +2,31 @@ import cv2
 import gradio as gr
 import numpy as np
 import os
+import threading
 import urllib.request
 from yolov8 import YOLOv8
 
 model_path = "models/yolov8n.onnx"
+model_ready = False
+yolov8_detector = None
 
-# Download model if it doesn't exist
-if not os.path.exists(model_path):
-    os.makedirs("models", exist_ok=True)
-    print("Downloading YOLOv8 model...")
-    url = "https://huggingface.co/Kalray/yolov8/resolve/main/yolov8n.onnx"
-    urllib.request.urlretrieve(url, model_path)
-    print("Model downloaded successfully.")
+def load_model():
+    global yolov8_detector, model_ready
+    if not os.path.exists(model_path):
+        os.makedirs("models", exist_ok=True)
+        print("Downloading YOLOv8 model...")
+        url = "https://huggingface.co/Kalray/yolov8/resolve/main/yolov8n.onnx"
+        urllib.request.urlretrieve(url, model_path)
+        print("Model downloaded successfully.")
+    yolov8_detector = YOLOv8(model_path, conf_thres=0.2, iou_thres=0.3)
+    model_ready = True
+    print("Model ready.")
 
-# Initialize yolov8 object detector
-yolov8_detector = YOLOv8(model_path, conf_thres=0.2, iou_thres=0.3)
+threading.Thread(target=load_model, daemon=True).start()
 
 def detect_image(input_image):
+    if not model_ready:
+        return input_image
     img_bgr = cv2.cvtColor(input_image, cv2.COLOR_RGB2BGR)
     yolov8_detector(img_bgr)
     combined_img = yolov8_detector.draw_detections(img_bgr)
@@ -30,7 +38,6 @@ def detect_video(video_path):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    # Resize for speed if video is large
     scale = 1.0
     if width > 640:
         scale = 640 / width
@@ -41,8 +48,8 @@ def detect_video(video_path):
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     out = cv2.VideoWriter(output_path, fourcc, fps, (new_width, new_height))
 
-    frame_skip = 2  # process every 2nd frame for speed
-    max_frames = int(fps * 15)  # limit to first 15 seconds
+    frame_skip = 2
+    max_frames = int(fps * 15)
     frame_count = 0
     last_detected = None
 
@@ -50,16 +57,13 @@ def detect_video(video_path):
         ret, frame = cap.read()
         if not ret:
             break
-
         frame_resized = cv2.resize(frame, (new_width, new_height))
-
         if frame_count % frame_skip == 0:
             yolov8_detector(frame_resized)
             combined = yolov8_detector.draw_detections(frame_resized)
             last_detected = combined
         else:
             combined = last_detected if last_detected is not None else frame_resized
-
         out.write(combined)
         frame_count += 1
 
@@ -82,7 +86,7 @@ webcam_tab = gr.Interface(
 
 video_tab = gr.Interface(
     fn=detect_video,
-    inputs=gr.Video(label="Upload a Video (first 15s will be processed)"),
+    inputs=gr.Video(label="Upload a Video (first 15s processed)"),
     outputs=gr.Video(label="Detected Objects Video"),
 )
 
