@@ -5,13 +5,13 @@ import os
 import urllib.request
 from yolov8 import YOLOv8
 
-model_path = "models/yolov8m.onnx"
+model_path = "models/yolov8n.onnx"
 
 # Download model if it doesn't exist
 if not os.path.exists(model_path):
     os.makedirs("models", exist_ok=True)
     print("Downloading YOLOv8 model...")
-    url = "https://huggingface.co/Kalray/yolov8/resolve/main/yolov8m.onnx"
+   url = "https://huggingface.co/Kalray/yolov8/resolve/main/yolov8m.onnx"
     urllib.request.urlretrieve(url, model_path)
     print("Model downloaded successfully.")
 
