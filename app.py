@@ -30,17 +30,38 @@ def detect_video(video_path):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    # Resize for speed if video is large
+    scale = 1.0
+    if width > 640:
+        scale = 640 / width
+    new_width = int(width * scale)
+    new_height = int(height * scale)
+
     output_path = "output.mp4"
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+    out = cv2.VideoWriter(output_path, fourcc, fps, (new_width, new_height))
 
-    while cap.isOpened():
+    frame_skip = 2  # process every 2nd frame for speed
+    max_frames = int(fps * 15)  # limit to first 15 seconds
+    frame_count = 0
+    last_detected = None
+
+    while cap.isOpened() and frame_count < max_frames:
         ret, frame = cap.read()
         if not ret:
             break
-        yolov8_detector(frame)
-        combined = yolov8_detector.draw_detections(frame)
+
+        frame_resized = cv2.resize(frame, (new_width, new_height))
+
+        if frame_count % frame_skip == 0:
+            yolov8_detector(frame_resized)
+            combined = yolov8_detector.draw_detections(frame_resized)
+            last_detected = combined
+        else:
+            combined = last_detected if last_detected is not None else frame_resized
+
         out.write(combined)
+        frame_count += 1
 
     cap.release()
     out.release()
@@ -54,13 +75,14 @@ image_tab = gr.Interface(
 
 webcam_tab = gr.Interface(
     fn=detect_image,
-    inputs=gr.Image(type="numpy", sources=["webcam"], label="Capture from Webcam"),
+    inputs=gr.Image(type="numpy", sources=["webcam"], streaming=True, label="Live Webcam"),
     outputs=gr.Image(type="numpy", label="Detected Objects"),
+    live=True,
 )
 
 video_tab = gr.Interface(
     fn=detect_video,
-    inputs=gr.Video(label="Upload a Video"),
+    inputs=gr.Video(label="Upload a Video (first 15s will be processed)"),
     outputs=gr.Video(label="Detected Objects Video"),
 )
 
