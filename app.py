@@ -7,8 +7,10 @@ import urllib.request
 from yolov8 import YOLOv8
 
 model_path = "models/yolov8n.onnx"
+
 model_ready = False
 yolov8_detector = None
+
 
 def load_model():
     global yolov8_detector, model_ready
@@ -22,7 +24,9 @@ def load_model():
     model_ready = True
     print("Model ready.")
 
+
 threading.Thread(target=load_model, daemon=True).start()
+
 
 def detect_image(input_image):
     if not model_ready:
@@ -32,9 +36,13 @@ def detect_image(input_image):
     combined_img = yolov8_detector.draw_detections(img_bgr)
     return cv2.cvtColor(combined_img, cv2.COLOR_BGR2RGB)
 
+
 def detect_video(video_path):
+    if not model_ready:
+        return video_path
+
     cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS) or 20
+    fps = cap.get(cv2.CAP_PROP_FPS) or 24
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
@@ -57,13 +65,16 @@ def detect_video(video_path):
         ret, frame = cap.read()
         if not ret:
             break
+
         frame_resized = cv2.resize(frame, (new_width, new_height))
+
         if frame_count % frame_skip == 0:
             yolov8_detector(frame_resized)
             combined = yolov8_detector.draw_detections(frame_resized)
             last_detected = combined
         else:
             combined = last_detected if last_detected is not None else frame_resized
+
         out.write(combined)
         frame_count += 1
 
@@ -71,31 +82,123 @@ def detect_video(video_path):
     out.release()
     return output_path
 
-image_tab = gr.Interface(
-    fn=detect_image,
-    inputs=gr.Image(type="numpy", label="Upload an Image"),
-    outputs=gr.Image(type="numpy", label="Detected Objects"),
+
+# ---------------- CUSTOM DESIGN ---------------- #
+
+custom_css = """
+:root {
+    --primary: #6366f1;
+    --primary-dark: #4f46e5;
+    --bg-dark: #0f0f1a;
+    --card-bg: #1a1a2e;
+    --text-light: #e5e5f0;
+    --accent: #22d3ee;
+}
+
+.gradio-container {
+    background: linear-gradient(160deg, #0f0f1a 0%, #16213e 100%) !important;
+    font-family: 'Segoe UI', 'Poppins', sans-serif !important;
+}
+
+#app-header {
+    text-align: center;
+    padding: 28px 20px 18px 20px;
+}
+
+#app-header h1 {
+    font-size: 2.1rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, #6366f1, #22d3ee);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+}
+
+#app-header p {
+    color: #a1a1c2;
+    font-size: 0.95rem;
+}
+
+.gr-tabs {
+    border-radius: 16px !important;
+}
+
+.tabitem, .tabs {
+    background: transparent !important;
+}
+
+button.primary {
+    background: linear-gradient(90deg, #6366f1, #4f46e5) !important;
+    border: none !important;
+    color: white !important;
+    font-weight: 600 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
+button.primary:hover {
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.55);
+    transform: translateY(-1px);
+}
+
+.block {
+    border-radius: 16px !important;
+    background: #1a1a2e !important;
+    border: 1px solid #2a2a45 !important;
+}
+
+footer {
+    display: none !important;
+}
+"""
+
+header_html = """
+<div id="app-header">
+    <h1>🎯 Real-Time Object Detection</h1>
+    <p>YOLOv8-powered detection for images and short video clips — upload and see it work instantly.</p>
+</div>
+"""
+
+theme = gr.themes.Base(
+    primary_hue="indigo",
+    secondary_hue="cyan",
+    neutral_hue="slate",
+    font=["Poppins", "Segoe UI", "sans-serif"],
+).set(
+    body_background_fill="#0f0f1a",
+    block_background_fill="#1a1a2e",
+    block_border_color="#2a2a45",
+    body_text_color="#e5e5f0",
+    input_background_fill="#12121f",
 )
 
-webcam_tab = gr.Interface(
-    fn=detect_image,
-    inputs=gr.Image(type="numpy", sources=["webcam"], streaming=True, label="Live Webcam"),
-    outputs=gr.Image(type="numpy", label="Detected Objects"),
-    live=True,
-)
+with gr.Blocks(css=custom_css, theme=theme, title="Object Detection • YOLOv8") as demo:
+    gr.HTML(header_html)
 
-video_tab = gr.Interface(
-    fn=detect_video,
-    inputs=gr.Video(label="Upload a Video (first 15s processed)"),
-    outputs=gr.Video(label="Detected Objects Video"),
-)
+    with gr.Tabs():
+        with gr.TabItem("🖼️ Image"):
+            with gr.Row():
+                with gr.Column():
+                    image_input = gr.Image(label="Upload an Image", type="numpy")
+                    image_btn = gr.Button("Detect Objects", variant="primary")
+                with gr.Column():
+                    image_output = gr.Image(label="Detected Objects")
+            image_btn.click(fn=detect_image, inputs=image_input, outputs=image_output)
+            gr.Examples(examples=[], inputs=image_input)
 
-demo = gr.TabbedInterface(
-    [image_tab, webcam_tab, video_tab],
-    tab_names=["Image", "Webcam", "Video"],
-    title="YOLOv8 Object Detection"
-)
+        with gr.TabItem("🎬 Video"):
+            with gr.Row():
+                with gr.Column():
+                    video_input = gr.Video(label="Upload a Video (first 15s processed)")
+                    video_btn = gr.Button("Detect Objects", variant="primary")
+                with gr.Column():
+                    video_output = gr.Video(label="Detected Objects Video")
+            video_btn.click(fn=detect_video, inputs=video_input, outputs=video_output)
+
+    gr.HTML(
+        "<p style='text-align:center;color:#6b6b8c;font-size:0.8rem;margin-top:20px;'>"
+        "Built with YOLOv8 + Gradio · by Monisha D</p>"
+    )
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 7860))
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    demo.launch()
