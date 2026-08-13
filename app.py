@@ -512,7 +512,10 @@ with gr.Blocks(title="Object Detection • YOLOv8") as demo:
         theme_toggle_btn = gr.Button("🌗 Toggle Light/Dark", size="sm", variant="secondary")
         sound_toggle = gr.Checkbox(label="🔊 Sound alert on detection", value=False)
 
-    demo.load(fn=model_status_text, outputs=status_display, every=2)
+    # Gradio 6.x removed the `every=` kwarg from event listeners (including
+    # demo.load). Polling now goes through a gr.Timer component instead.
+    status_timer = gr.Timer(2)
+    status_timer.tick(fn=model_status_text, outputs=status_display)
 
     theme_toggle_btn.click(
         fn=None, inputs=None, outputs=None,
